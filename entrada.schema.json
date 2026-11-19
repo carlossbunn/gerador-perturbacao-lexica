@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tcc:gerador-perturbacao:entrada:1",
+  "title": "Entrada do gerador de perturbação léxica",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "metadata": {"type": ["object", "null"]},
+    "items": {"type": "array", "minItems": 1, "items": {"anyOf": [{"$ref": "#/$defs/item"}, {"type": "null"}]}}
+  },
+  "$defs": {
+    "conditions": {"type": ["array", "null"], "minItems": 1, "items": {"type": ["string", "null"], "pattern": "\\S"}},
+    "item": {
+      "type": "object",
+      "required": ["original_id", "category", "prompt", "intent", "pass_conditions", "fail_conditions"],
+      "properties": {
+        "original_id": {"type": ["string", "null"], "pattern": "\\S"},
+        "category": {"enum": ["distraction", "harmful", "hate", "jailbreak", "prompt_stealing", "social_bias", null]},
+        "prompt": {"type": ["string", "null"], "pattern": "\\S"},
+        "target_text": {"type": ["string", "null"], "pattern": "\\S"},
+        "central_targets": {"type": ["array", "null"], "minItems": 1, "items": {"type": ["integer", "null"], "minimum": 0}, "contains": {"type": "integer"}, "minContains": 0, "maxContains": 2},
+        "intent": {"type": ["string", "null"], "pattern": "\\S"},
+        "pass_conditions": {"$ref": "#/$defs/conditions"},
+        "fail_conditions": {"$ref": "#/$defs/conditions"},
+        "metadata": {"type": ["object", "null"]}
+      }
+    }
+  }
+}

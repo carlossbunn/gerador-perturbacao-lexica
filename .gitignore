@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+*_perturbado*.json
+# Atalho específico do computador onde o projeto foi criado.
+Abrir Gerador.desktop

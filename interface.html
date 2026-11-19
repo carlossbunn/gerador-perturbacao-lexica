@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gerador de perturbação léxica · TCC</title>
+<style>
+:root{font:16px system-ui,sans-serif;color:#e8edf6;background:#0f1726;color-scheme:dark}body{max-width:1150px;margin:35px auto;padding:0 24px}h1{font-size:30px;margin-bottom:8px}p{color:#b8c5d9;line-height:1.6}section{background:#192438;border:1px solid #34445e;border-radius:14px;padding:22px;margin:20px 0}h2{font-size:20px;margin-top:0}input,select,button{font:inherit;border:1px solid #536780;border-radius:7px;padding:10px;background:#101b2e;color:#eef4ff}button{cursor:pointer;background:#284b77}button:hover{background:#36689e}button:disabled{opacity:.5;cursor:wait}input[type=checkbox]{margin-right:8px;accent-color:#6bcbff}input[type=text]{width:min(70%,700px)}label{display:inline-block;margin:8px 16px 8px 0}#entries{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;max-height:250px;overflow:auto}#selected{overflow-wrap:anywhere;color:#9ee5cb}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.6 ui-monospace,monospace;background:#101b2e;padding:16px;border-radius:8px;max-height:650px;overflow:auto}.primary{background:#14765b;font-weight:600}.row{display:flex;gap:12px;flex-wrap:wrap}.error{color:#ffadad}footer{margin:25px 0;color:#a6b8d1}small{color:#a6b8d1}
+</style>
+<h1>Gerador de perturbação léxica</h1>
+<p>Preparação reprodutível de datasets para o benchmark do TCC. Processamento local, em Python.</p>
+<section><h2>1. Escolha a pasta e o JSON</h2>
+<div class="row"><input id="folder" type="text" aria-label="Caminho da pasta" placeholder="Caminho da pasta com seu JSON"><button id="open">Abrir pasta</button><button id="up">↑ Pasta anterior</button></div>
+<div id="entries"></div><p id="selected">Nenhum arquivo selecionado.</p>
+<small>Abra uma pasta pelos botões ou digite seu caminho. Clique no JSON de entrada. Arquivos gerados são identificados.</small></section>
+<section><h2>2. Perturbações e variações</h2><button id="all">Marcar todas</button> <button id="none">Desmarcar todas</button><div id="kinds">
+<label><input type="checkbox" value="delete" checked>Deleção</label>
+<label><input type="checkbox" value="insercao_pontuacao" checked>Inserção de pontuação</label>
+<label><input type="checkbox" value="insercao_ruido" checked>Inserção de ruído</label>
+<label><input type="checkbox" value="substituicao" checked>Substituição</label>
+<label><input type="checkbox" value="transposicao" checked>Transposição</label>
+<label><input type="checkbox" value="homoglifo" checked>Homóglifos</label>
+<label><input type="checkbox" value="hibrido" checked>Híbrido</label></div>
+<div id="scopes"><label><input type="checkbox" value="1" checked>Um termo central</label><label><input type="checkbox" value="2" checked>Dois termos centrais</label><label><input type="checkbox" value="todos" checked>Frase toda</label></div>
+<label>Modo <select id="mode"><option value="tcc">Variações descritas no TCC</option><option value="publicado">Estratégia do dataset publicado (x/k)</option></select></label>
+<p id="modeHelp">Cada variação aplica a operação diretamente ao texto-base, em um, dois ou todos os termos.</p>
+<label>Semente <input id="seed" type="number" value="42" step="1" style="width:110px"></label>
+<label>Taxa por palavra <input id="rate" type="number" value="0.08" min="0.001" max="1" step="0.01" style="width:100px"></label>
+<label><input id="strict" type="checkbox">Exigir perfil TCC: 30 casos, 5 por categoria</label>
+<p><small>O baseline é sempre incluído. Os termos centrais podem ser indicados no JSON; caso contrário, usa-se proximidade do centro textual. Não há análise semântica automática.</small></p></section>
+<section><h2>3. Valide e gere</h2><div class="row"><button id="validate">Validar entrada</button><button id="preview">Visualizar exemplos e totais</button><button id="generate" class="primary">Gerar JSON na mesma pasta</button></div>
+<p id="status" role="status" aria-live="polite">Pronto.</p><pre id="result">O resultado e o caminho do novo arquivo aparecerão aqui.</pre></section>
+<footer>Sem sobrescrever o original: saídas recebem o sufixo _perturbado. <button id="stop">Encerrar aplicativo</button></footer>
+<script>
+const token='__TOKEN__'; let selected='', parent=''; const $=id=>document.getElementById(id);
+async function api(action,data){const r=await fetch('/api/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':token},body:JSON.stringify(data)});const body=await r.json();if(!r.ok)throw Error(body.error||'Falha na operação');return body;}
+function status(text,error=false){$('status').textContent=text;$('status').className=error?'error':'';}
+async function browse(folder){try{const data=await api('browse',{folder});$('folder').value=data.folder;parent=data.parent;selected='';$('selected').textContent='Nenhum arquivo selecionado.';$('entries').replaceChildren();for(const entry of data.entries){const b=document.createElement('button');b.textContent=(entry.directory?'📁 ':'📄 ')+entry.name+(entry.generated?' (gerado)':'');b.onclick=()=>entry.directory?browse(entry.path):choose(entry.path);$('entries').appendChild(b);}status('Pasta aberta.');}catch(e){status(e.message,true);}}
+function choose(path){selected=path;$('selected').textContent='Selecionado: '+path;status('Arquivo selecionado. Valide ou visualize antes de gerar.');}
+function config(){if(!selected)throw Error('Selecione um JSON na seção 1.');if(!$('seed').value||!Number.isInteger(Number($('seed').value)))throw Error('Informe uma semente inteira.');return{file:selected,kinds:[...document.querySelectorAll('#kinds input:checked')].map(x=>x.value),scopes:[...document.querySelectorAll('#scopes input:checked')].map(x=>x.value),mode:$('mode').value,seed:Number($('seed').value),rate:Number($('rate').value),strict:$('strict').checked};}
+async function execute(action){const buttons=[...document.querySelectorAll('button')];try{const data=config();buttons.forEach(b=>b.disabled=true);status('Processando…');const response=await api(action,data);$('result').textContent=JSON.stringify(response,null,2);status(response.saved_to?'Arquivo salvo: '+response.saved_to:action==='validate'?'Entrada válida.':'Prévia pronta. Nenhum arquivo salvo.');}catch(e){status(e.message,true);}finally{buttons.forEach(b=>b.disabled=false);}}
+$('open').onclick=()=>browse($('folder').value);$('up').onclick=()=>browse(parent);$('folder').onkeydown=e=>{if(e.key==='Enter')browse($('folder').value);};
+for(const action of ['validate','preview','generate'])$(action).onclick=()=>execute(action);
+$('all').onclick=()=>document.querySelectorAll('#kinds input').forEach(x=>x.checked=true);$('none').onclick=()=>document.querySelectorAll('#kinds input').forEach(x=>x.checked=false);
+$('mode').onchange=()=>{$('modeHelp').textContent=$('mode').value==='tcc'?'Cada variação aplica a operação diretamente ao texto-base, em um, dois ou todos os termos.':'Primeiro perturba a frase toda; variantes centrais acrescentam x em um termo ou k em dois termos. Reproduz a estratégia, não os arquivos originais byte a byte.';};
+$('stop').onclick=async()=>{try{await api('stop',{});status('Aplicativo encerrado. Você pode fechar esta aba.');document.querySelectorAll('button').forEach(b=>b.disabled=true);}catch(e){status(e.message,true);}};
+browse('');
+</script></html>
